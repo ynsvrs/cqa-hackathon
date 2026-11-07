@@ -1,0 +1,18 @@
+# секреты: ключ модели, ссылка организаторов с sig=
+.env
+.env.*
+*.key
+secrets*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / редакторы / ОС
+node_modules/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
