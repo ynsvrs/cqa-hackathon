@@ -9,8 +9,8 @@
   тестом `tests/test_export_results.py` (p4-ru-001 с дублем и чат).
 - Наши статусы: completed → ok; failed / provider_error → error с причиной; not_evaluable → error
   «В диалоге нет реплик оператора»; нет оценки → error «Оценка не выполнена».
-- `model.name` — все фактически использованные модели по llm_calls экспортируемых оценок (включая
-  нормализацию звонков, если она входила в оценку); `mode` — local / external_api / hybrid.
+- `model.name` — все фактически использованные модели по llm_calls оценок, вошедших в сдачу со статусом ok
+  (включая нормализацию звонков, если она входила в оценку); `mode` — local / external_api / hybrid.
 """
 from __future__ import annotations
 
@@ -159,7 +159,6 @@ def export_group(conn: sqlite3.Connection, group_id: str, *, checklist_id: str =
             results.append(_error(cid, mapping["errors"]["missing"]))
             continue
         ev = db.get_evaluation(conn, summary["id"])
-        ev_ids.append(ev["id"])
         if ev["status"] == "not_evaluable":
             results.append(_error(cid, mapping["errors"]["not_evaluable"]))
             continue
@@ -187,6 +186,7 @@ def export_group(conn: sqlite3.Connection, group_id: str, *, checklist_id: str =
         if criteria is None:
             continue
         critical = next((c["value"] for c in criteria if c["criterion_id"] == mapping["critical_flag_code"]), False)
+        ev_ids.append(ev["id"])                      # model.name — только по оценкам, попавшим в сдачу как ok
         results.append({"conversation_id": cid, "status": "ok", "criteria": criteria,
                         "score": {"final_score": round(float(ev["total"]), 2), "critical_flag": bool(critical)}})
     return {"schema_version": mapping["schema_version"],
