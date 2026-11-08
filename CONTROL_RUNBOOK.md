@@ -45,7 +45,7 @@
 | Шаг | Команда / действие | Время |
 |---|---|---|
 | 0.1 | `.env`: `LLM_PROVIDER=gemini`, `LLM_MODEL=` по таблице выше, `GEMINI_API=…`, `EVAL_MODE=per_dialog`, `VOTES=1`, `NORMALIZE_CALLS=0`, `TEAM_NAME=Twinxxx`, `DATA_API_URL=…` | 1 мин |
-| 0.2 | `pytest -q` зелёный; `git status` чистый; `git remote -v` показывает репозиторий, `git push --dry-run` проходит | 1 мин |
+| 0.2 | `pytest -q` зелёный; `git status` чистый; `git remote -v` → `origin` = github.com/ynsvrs/cqa-hackathon, `git push --dry-run origin HEAD:main` проходит | 1 мин |
 | 0.3 | Репетиция на EDGE как на «учебном prod» (без вызовов модели, из сохранённых оценок): `python scripts/export_results.py --group EDGE --out tmp/prod_rehearsal --db data/cqa_local.db --version 1` → «ошибок 0», 12 записей | 1 мин |
 | 0.4 | Квота выбранной модели Gemini сегодня не тронута: до выдачи prod ни одного запроса к `gemini-3.6-flash` | — |
 
@@ -100,7 +100,7 @@ python scripts/validate_results.py results/prod/results.json --group <PROD_GROUP
 ```
 git add results/prod/results.json data/prod_raw.json
 git commit -m "prod: results.json (<PROD_GROUP_ID>)"
-git push zhettus HEAD:main     # репозиторий сдачи: https://github.com/Zhettus/cqa-hackathon (ветка main, с любой локальной ветки)
+git push origin HEAD:main      # репозиторий сдачи: https://github.com/ynsvrs/cqa-hackathon, ветка main (ссылка у организаторов)
 ```
 Проверить файл по ссылке на GitHub (`gh browse results/prod/results.json` или открыть в браузере), убедиться,
 что виден именно последний коммит. Если пуш не прошёл (сеть, права) — `gh auth status`, повторить; в крайнем

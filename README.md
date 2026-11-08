@@ -5,6 +5,8 @@
 
 - Задание — `docs/SPEC.md`; трактовки критериев — `docs/rules.md` (входят в промпт модели).
 - Контракт REST API — `docs/api_contract.md`; состояние проекта и метрики — `docs/STATUS.md`.
+- Репозиторий сдачи — github.com/ynsvrs/cqa-hackathon, ветка `main`. Каталог `cqa-hackathon/` — исходный фронтенд
+  второго участника как он был внесён в репозиторий (история сохранена); рабочий интерфейс — `frontend/`.
 - Сдача контрольного набора — `CONTROL_RUNBOOK.md`; формат организаторов — `results/dev/results.json`,
   `scripts/export_results.py`, `scripts/validate_results.py`; сценарий защиты — `DEMO.md`.
 
