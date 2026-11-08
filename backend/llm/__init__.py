@@ -3,7 +3,8 @@
 Переключение провайдера — одной строкой `LLM_PROVIDER=anthropic | gemini | ollama | groq | openrouter | openai | vllm`:
 у каждого вида есть профиль со значениями по умолчанию (модель, адрес, переменная с ключом, лимит запросов,
 таймаут, параллельность). Любое из них переопределяется обычной переменной .env (LLM_MODEL, LLM_BASE_URL,
-LLM_API_KEY, RATE_LIMIT_RPM, LLM_TIMEOUT_S, LLM_CONCURRENCY). Пустая переменная = не задана.
+LLM_API_KEY, RATE_LIMIT_RPM, LLM_TIMEOUT_S, LLM_CONCURRENCY); модель конкретного вида — `<ВИД>_MODEL`
+(GEMINI_MODEL, OLLAMA_MODEL), она важнее общего LLM_MODEL. Пустая переменная = не задана.
 """
 from __future__ import annotations
 
@@ -50,7 +51,9 @@ def get_provider() -> LLMProvider:
     profile = PROFILES.get(kind)
     if profile is None:
         raise ValueError(f"неизвестный LLM_PROVIDER={kind!r} ({' | '.join(PROFILES)})")
-    model = _env("LLM_MODEL", profile.get("model"))
+    # модель: <ВИД>_MODEL (GEMINI_MODEL, OLLAMA_MODEL, ANTHROPIC_MODEL …) → LLM_MODEL → модель профиля.
+    # Так переключение LLM_PROVIDER одной строкой не тянет за собой чужую модель из общего LLM_MODEL.
+    model = _env(f"{kind.upper()}_MODEL") or _env("LLM_MODEL", profile.get("model"))
     if not model:
         raise ValueError(f"LLM_MODEL не задан (для LLM_PROVIDER={kind} модели по умолчанию нет)")
     common = dict(timeout_s=float(_env("LLM_TIMEOUT_S", str(profile.get("timeout_s", 120)))),

@@ -3,7 +3,7 @@ import pytest
 
 from backend.llm import PROFILES, get_provider
 
-ENV_KEYS = ["LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "LLM_API_KEY", "RATE_LIMIT_RPM", "LLM_TIMEOUT_S",
+ENV_KEYS = ["LLM_PROVIDER", "LLM_MODEL", "GEMINI_MODEL", "OLLAMA_MODEL", "ANTHROPIC_MODEL", "LLM_BASE_URL", "LLM_API_KEY", "RATE_LIMIT_RPM", "LLM_TIMEOUT_S",
             "LLM_CONCURRENCY", "LLM_MAX_RETRIES", "GEMINI_API_KEY", "GEMINI_API", "GOOGLE_API_KEY", "GROQ_API_KEY",
             "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
@@ -64,3 +64,19 @@ def test_anthropic_default(env):
     env.setenv("LLM_API_KEY", "sk-test")
     p = get_provider()
     assert p.name == "anthropic" and p.model == "claude-opus-5-5"
+
+
+def test_kind_model_beats_generic_llm_model(env):
+    """LLM_MODEL=gemini-… в .env не должен уехать в Ollama при LLM_PROVIDER=ollama: модель вида важнее общей."""
+    env.setenv("LLM_MODEL", "gemini-3.8-flash")
+    env.setenv("OLLAMA_MODEL", "cqa-qwen14b")
+    env.setenv("GEMINI_MODEL", "gemini-3.6-flash")
+    env.setenv("GEMINI_API_KEY", "k")
+    env.setenv("LLM_PROVIDER", "ollama")
+    assert get_provider().model == "cqa-qwen14b"
+    env.setenv("LLM_PROVIDER", "gemini")
+    assert get_provider().model == "gemini-3.6-flash"
+    env.delenv("GEMINI_MODEL")
+    assert get_provider().model == "gemini-3.8-flash"                  # общий LLM_MODEL, если своего нет
+    env.delenv("LLM_MODEL")
+    assert get_provider().model == "gemini-3.8-flash"                  # модель профиля

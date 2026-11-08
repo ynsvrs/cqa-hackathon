@@ -12,7 +12,7 @@
 
 | Параметр | Значение | Где |
 |---|---|---|
-| провайдер / модель | `LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-3.8-flash` **или** `gemini-3.6-flash` — по таблице ниже | `.env`; `GET /api/meta` → `llm` |
+| провайдер / модель | `LLM_PROVIDER=gemini`, `GEMINI_MODEL=gemini-3.8-flash` **или** `gemini-3.6-flash` — по таблице ниже | `.env`; `GET /api/meta` → `llm` |
 | ключ | `GEMINI_API` (или `GEMINI_API_KEY`) | `.env` |
 | режим / голоса | `EVAL_MODE=per_dialog`, `VOTES=1` (один запрос на диалог) | `.env`; `meta.votes` |
 | чек-лист | `chat-quality` **v1** (кандидат v2 не активирован) | `meta.checklists` |
@@ -30,8 +30,8 @@
 
 | Когда выдали prod | Основная | Запасная 1 | Запасная 2 |
 |---|---|---|---|
-| квота `gemini-3.8-flash` на текущие сутки не тронута (после 13:00 8 ноября либо другой день) | `LLM_MODEL=gemini-3.8-flash` | `LLM_MODEL=gemini-3.6-flash` | `LLM_PROVIDER=ollama` |
-| до 13:00 8 ноября | `LLM_MODEL=gemini-3.6-flash` | `LLM_PROVIDER=ollama` (qwen2.5:14b) | — |
+| квота `gemini-3.8-flash` на текущие сутки не тронута (после 13:00 8 ноября либо другой день) | `GEMINI_MODEL=gemini-3.8-flash` | `GEMINI_MODEL=gemini-3.6-flash` | `LLM_PROVIDER=ollama` |
+| до 13:00 8 ноября | `GEMINI_MODEL=gemini-3.6-flash` | `LLM_PROVIDER=ollama` (qwen2.5:14b) | — |
 
 - Квоту `gemini-3.6-flash` до выдачи prod **не тратить ни на что** (демо, проверки, замеры).
 - Перед prod — ровно **один пробный вызов на выбранной модели** (шаг 2), это 1 запрос из квоты.
@@ -44,7 +44,7 @@
 
 | Шаг | Команда / действие | Время |
 |---|---|---|
-| 0.1 | `.env`: `LLM_PROVIDER=gemini`, `LLM_MODEL=` по таблице выше, `GEMINI_API=…`, `EVAL_MODE=per_dialog`, `VOTES=1`, `NORMALIZE_CALLS=0`, `TEAM_NAME=Twinxxx`, `DATA_API_URL=…` | 1 мин |
+| 0.1 | `.env`: `LLM_PROVIDER=gemini`, `GEMINI_MODEL=` по таблице выше, `LLM_MODEL` пустой, `GEMINI_API=…`, `EVAL_MODE=per_dialog`, `VOTES=1`, `NORMALIZE_CALLS=0`, `TEAM_NAME=Twinxxx`, `DATA_API_URL=…` | 1 мин |
 | 0.2 | `pytest -q` зелёный; `git status` чистый; `git remote -v` → `origin` = github.com/ynsvrs/cqa-hackathon, `git push --dry-run origin HEAD:main` проходит | 1 мин |
 | 0.3 | Репетиция на EDGE как на «учебном prod» (без вызовов модели, из сохранённых оценок): `python scripts/export_results.py --group EDGE --out tmp/prod_rehearsal --db data/cqa_local.db --version 1` → «ошибок 0», 12 записей | 1 мин |
 | 0.4 | Квота выбранной модели Gemini сегодня не тронута: до выдачи prod ни одного запроса к `gemini-3.6-flash` | — |
@@ -124,7 +124,7 @@ git push origin HEAD:main      # репозиторий сдачи: https://gith
 
 | Симптом | Действие |
 |---|---|
-| 429 с текстом `requests per day` (квота модели на сегодня) | `.env`: `LLM_MODEL=gemini-3.6-flash` (своя квота) или `LLM_PROVIDER=ollama`; повторить шаг 3 — оценённые диалоги сохраняются |
+| 429 с текстом `requests per day` (квота модели на сегодня) | `.env`: `GEMINI_MODEL=gemini-3.6-flash` (своя квота) или `LLM_PROVIDER=ollama`; повторить шаг 3 — оценённые диалоги сохраняются |
 | 429 без «per day» / 503 «high demand» | ничего: скрипт ждёт `RATE_LIMIT_BACKOFF_S × 2^n` и повторяет (до `RATE_LIMIT_ATTEMPTS`); если дольше 5 мин — запасной вариант |
 | `Остановлено (ключ провайдера не принят)` | проверить `GEMINI_API` в `.env` (ключ AI Studio), повторить |
 | API организаторов недоступен | ответ сохранить вручную как `data/prod_raw.json` и `data/<PROD_GROUP_ID>.json`; `evaluate_group.py` импортирует локальный файл |
