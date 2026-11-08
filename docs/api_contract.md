@@ -55,10 +55,17 @@ JSON в UTF-8, время — ISO 8601 UTC. Фронтенд (`frontend/`) ра�
   "skipped": [], "imported_at": "2026-11-07T13:20:00Z" }
 ```
 
-### `POST /api/datasets/upload`
-Ручная загрузка транскрипта(ов) в формате организаторов (`data.records[]`
-или массив записей). Тело — тот же JSON. Ответ как у import, `source: "upload"`,
-`group_id` из тела или `"UPLOAD"`.
+Загрузка по готовой GET-ссылке организаторов (адрес уже содержит group_id): тело `{ "url": "https://…?group_id=SWAP" }`
+(+ необязательный `group_id`, иначе он берётся из `dataset_group_id` ответа или из ссылки). Ответ API сохраняется
+байт в байт в `data/uploads/<group>_url_<время>.json` и, если файла ещё нет, в `data/<group>.json`; в ответе
+`source: "remote"`, `url`, `saved_to`.
+
+### `POST /api/datasets/upload[?group_id=SWAP]`
+Ручная загрузка JSON: ответ API организаторов (`data.records[]`), `{records}`, массив записей **или один
+диалог** (`{conversation_id, channel, language, transcript}`). Имя набора — параметр `group_id`, иначе
+`dataset_group_id` из тела, иначе `"UPLOAD"`. Ответ как у import, `source: "upload"`, `saved_to` — копия
+исходного JSON в `data/uploads/`. В интерфейсе — кнопка «Загрузить JSON» на экране диалогов (имя набора —
+из файла или из имени файла).
 
 ### `GET /api/datasets`
 ```json

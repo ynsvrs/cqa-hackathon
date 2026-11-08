@@ -150,7 +150,12 @@ CQA.api = (() => {
     },
 
     // наборы и диалоги
-    importDataset: (group, prefer = 'remote') => http('POST', '/api/datasets/import', { group_id: group, prefer }),
+    // group — group_id у организаторов или готовая GET-ссылка (http…): сервер сам скачает и сохранит ответ
+    importDataset: (group, prefer = 'remote') => /^https?:\/\//i.test(group)
+      ? http('POST', '/api/datasets/import', { url: group, prefer })
+      : http('POST', '/api/datasets/import', { group_id: group, prefer }),
+    // JSON организаторов, {records}, массив записей или один диалог; имя набора — параметр
+    uploadDataset: (payload, group) => http('POST', '/api/datasets/upload' + (group ? `?group_id=${q(group)}` : ''), payload),
     getDatasets: () => http('GET', '/api/datasets'),
     async getDialogs(group) {
       const r = await http('GET', `/api/conversations?group_id=${q(group)}&limit=500`);

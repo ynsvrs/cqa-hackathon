@@ -57,6 +57,17 @@ def main() -> int:
         page.fill("#gid", "EDGE"); page.click("#load")
         page.wait_for_function("document.querySelectorAll('#rows .row').length === 12", timeout=20000)
         check("набор EDGE загружен через API", True)
+        # загрузка JSON файлом: два диалога EDGE как новый набор E2E
+        import json as _json, tempfile
+        edge = _json.loads(Path("data/edge.json").read_text(encoding="utf-8"))["data"]["records"][:2]
+        tmpf = Path(tempfile.mkdtemp()) / "E2E.json"
+        tmpf.write_text(_json.dumps({"records": edge}, ensure_ascii=False), encoding="utf-8")
+        page.set_input_files("#uploadFile", str(tmpf))
+        page.wait_for_function("document.querySelector('#gid').value === 'E2E'", timeout=20000)
+        page.wait_for_function("document.querySelectorAll('#rows .row').length === 2", timeout=20000)
+        check("загрузка JSON файлом: набор E2E из 2 диалогов", True)
+        page.fill("#gid", "EDGE"); page.click("#load")
+        page.wait_for_function("document.querySelectorAll('#rows .row').length === 12", timeout=20000)
         with page.expect_download(timeout=20000) as dl:
             page.click("#export")
         check("экспорт для сдачи: скачан results.json", dl.value.suggested_filename == "results.json")

@@ -12,8 +12,10 @@ CQA.pages.dialogs = async function (app) {
       <h1 class="h1-long">Оценка качества диалогов</h1>
       <p class="lead">Автоматическая проверка работы операторов по чек-листу — с объяснением и репликой-доказательством для каждого балла.</p>
       <div class="toolbar">
-        <label class="gid"><span>group_id</span><input id="gid" value="${esc(cfg.GROUP_ID)}" spellcheck="false"></label>
+        <label class="gid"><span>group_id или ссылка</span><input id="gid" value="${esc(cfg.GROUP_ID)}" spellcheck="false" title="group_id набора у организаторов (DEV, FBroker, SWAP) или готовая GET-ссылка на набор"></label>
         <button class="btn btn-o" id="load">Загрузить набор</button>
+        <button class="btn btn-o" id="uploadBtn" title="Загрузить файл JSON: ответ API организаторов, {records}, массив диалогов или один диалог">Загрузить JSON</button>
+        <input type="file" id="uploadFile" accept=".json,application/json" style="display:none">
         <button class="btn btn-g" id="run">Оценить все</button>
         <button class="btn btn-o" id="runNew" title="Оценить только диалоги без оценки текущей версией чек-листа">Оценить неоценённые</button>
         <button class="btn btn-o" id="export" title="results.json в формате организаторов: автоматическая оценка набора последней версией чек-листа">Экспорт для сдачи</button>
@@ -114,16 +116,36 @@ CQA.pages.dialogs = async function (app) {
     list.forEach(d => prev[d.id] = d.status);
   }
 
+  const SOURCE = { remote: 'API организаторов', local: 'локальный файл', upload: 'файл JSON' };
   async function importAndLoad() {
     const btn = app.querySelector('#load');
-    cfg.GROUP_ID = app.querySelector('#gid').value.trim() || 'DEV'; prev = {};
+    const target = app.querySelector('#gid').value.trim() || 'DEV'; prev = {};
     btn.disabled = true; btn.textContent = 'Загружаю…';
     try {
-      const r = await CQA.api.importDataset(cfg.GROUP_ID, 'remote');
-      toast(`Набор ${cfg.GROUP_ID}: ${r.imported} диалогов (${r.source === 'remote' ? 'API организаторов' : r.source === 'local' ? 'локальный файл' : r.source})`);
+      const r = await CQA.api.importDataset(target, 'remote');
+      cfg.GROUP_ID = r.group_id; app.querySelector('#gid').value = r.group_id;
+      toast(`Набор ${r.group_id}: ${r.imported} диалогов (${SOURCE[r.source] || r.source})` + (r.warnings && r.warnings.length ? ' · ' + r.warnings.join('; ') : ''));
     } catch (e) { toast('Не удалось загрузить набор: ' + e.message, true); }
     btn.disabled = false; btn.textContent = 'Загрузить набор';
     await load();
+  }
+
+  async function uploadJson(file) {
+    if (!file) return;
+    const btn = app.querySelector('#uploadBtn');
+    btn.disabled = true; btn.textContent = 'Загружаю…';
+    try {
+      const payload = JSON.parse(await file.text());
+      // имя набора: dataset_group_id из файла, иначе имя файла (латиница, цифры, _ и -)
+      const fromFile = file.name.replace(/\.json$/i, '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64) || 'UPLOAD';
+      const inBody = payload && payload.data && payload.data.dataset_group_id;
+      const r = await CQA.api.uploadDataset(payload, inBody ? null : fromFile);
+      cfg.GROUP_ID = r.group_id; app.querySelector('#gid').value = r.group_id; prev = {};
+      toast(`Набор ${r.group_id}: ${r.imported} диалогов из файла ${file.name}. Откройте диалог и нажмите «Оценить» или «Оценить все».`);
+      await load();
+    } catch (e) { toast('Не удалось загрузить JSON: ' + e.message, true); }
+    btn.disabled = false; btn.textContent = 'Загрузить JSON';
+    app.querySelector('#uploadFile').value = '';
   }
 
   async function run(onlyNew) {
@@ -187,6 +209,8 @@ CQA.pages.dialogs = async function (app) {
   app.querySelector('#run').onclick = () => run(false);
   app.querySelector('#runNew').onclick = () => run(true);
   app.querySelector('#export').onclick = exportResults;
+  app.querySelector('#uploadBtn').onclick = () => app.querySelector('#uploadFile').click();
+  app.querySelector('#uploadFile').onchange = e => uploadJson(e.target.files[0]);
   window.addEventListener('hashchange', () => { alive = false; }, { once: true });
 
   tilt(app); parallax(app.querySelector('.hero'));

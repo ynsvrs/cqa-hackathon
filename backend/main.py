@@ -54,8 +54,9 @@ def _error(status: int, code: str, message: str, details: dict | None = None) ->
 
 # --- тела запросов ----------------------------------------------------------------------------
 class ImportRequest(BaseModel):
-    group_id: str
+    group_id: str | None = None
     prefer: Literal["remote", "local"] = "remote"
+    url: str | None = None          # готовая GET-ссылка организаторов — вместо DATA_API_URL + group_id
 
 
 class EvaluateRequest(BaseModel):
@@ -213,14 +214,23 @@ def _dataset(conn: sqlite3.Connection, d: dict) -> dict:
 
 
 @router.post("/api/datasets/import", status_code=201)
-async def import_dataset(body: ImportRequest, conn: sqlite3.Connection = Conn):
-    res = data_source.import_group(conn, body.group_id, prefer=body.prefer)
+async def import_dataset(body: ImportRequest, request: Request, conn: sqlite3.Connection = Conn):
+    """По group_id (DATA_API_URL, иначе data/<group_id>.json) или по готовой ссылке url (GET, ответ сохраняется)."""
+    if body.url:
+        res = data_source.import_url(conn, body.url, group_id=body.group_id, data_dir=request.app.state.data_dir)
+    elif body.group_id:
+        res = data_source.import_group(conn, body.group_id, prefer=body.prefer)
+    else:
+        raise ApiError(400, "bad_request", "нужен group_id или url")
     return {**res, "skipped": []}
 
 
 @router.post("/api/datasets/upload", status_code=201)
-async def upload_dataset(payload: Any = Body(...), conn: sqlite3.Connection = Conn):
-    res = data_source.import_upload(conn, payload)
+async def upload_dataset(request: Request, payload: Any = Body(...), group_id: str | None = None,
+                         conn: sqlite3.Connection = Conn):
+    """JSON организаторов, {records}, список записей или один диалог; group_id — параметр запроса,
+    иначе dataset_group_id из тела, иначе UPLOAD. Исходный JSON сохраняется в data/uploads/."""
+    res = data_source.import_upload(conn, payload, group_id=group_id, data_dir=request.app.state.data_dir)
     return {**res, "skipped": []}
 
 
