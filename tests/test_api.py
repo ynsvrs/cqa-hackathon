@@ -18,10 +18,23 @@ from tests.test_evaluator import OK, ScriptedProvider, answer  # noqa: E402
 from tests.test_normalize import NormalizingProvider  # noqa: E402
 
 
+def _data_dir(tmp_path):
+    """Копия наборов DEV/EDGE во временном каталоге: импорт читает их оттуда, а загрузки (data/uploads,
+    <group>.json) не попадают в data/ проекта."""
+    d = tmp_path / "data_dir"
+    d.mkdir(exist_ok=True)
+    for name in ("dev.json", "edge.json"):
+        (d / name).write_bytes((ROOT / "data" / name).read_bytes())
+    audio = ROOT / "data" / "audio"
+    if audio.exists() and not (d / "audio").exists():
+        (d / "audio").symlink_to(audio)              # аудио звонков только читается
+    return d
+
+
 @pytest.fixture
 def client(tmp_path):
     prov = NormalizingProvider({cid: [answer(cid)] for cid in OK}, uncertain={15})
-    app = create_app(db_path=tmp_path / "api.db", data_dir=ROOT / "data", provider=prov)
+    app = create_app(db_path=tmp_path / "api.db", data_dir=_data_dir(tmp_path), provider=prov)
     with TestClient(app) as c:
         c.provider = prov
         yield c
@@ -335,7 +348,7 @@ def test_llm_calls(client):
 
 def test_cors_from_env(tmp_path, monkeypatch):
     monkeypatch.setenv("CORS_ORIGINS", "https://org.crm.dynamics.com, http://localhost:5500")
-    app = create_app(db_path=tmp_path / "c.db", data_dir=ROOT / "data", provider=ScriptedProvider({}))
+    app = create_app(db_path=tmp_path / "c.db", data_dir=_data_dir(tmp_path), provider=ScriptedProvider({}))
     with TestClient(app) as c:
         r = c.get("/api/health", headers={"Origin": "https://org.crm.dynamics.com"})
         assert r.headers.get("access-control-allow-origin") == "https://org.crm.dynamics.com"
