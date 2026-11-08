@@ -27,7 +27,7 @@ from backend.checklist import validate_checklist
 from backend.config import ROOT, get_settings
 from backend.evaluator import Evaluator, default_mode, default_votes
 from backend.export_results import export_group
-from backend.llm import LLMError, describe_config, get_provider
+from backend.llm import LLMError, describe_config, get_provider, retry_rate_limited
 from backend.normalize import normalize_call, normalizer_version, text_hash
 from backend.preprocess import preprocess
 from backend.prompt import prompt_version
@@ -440,10 +440,17 @@ def _with_titles(conn: sqlite3.Connection, ev: dict) -> tuple[dict, list[dict], 
     return ev, appeals, final
 
 
+# Оценка одного диалога из интерфейса: при 429/503 провайдера ждём и повторяем (15 → 30 → 60 с), как пакет;
+# ошибки ключа и баланса — сразу 502.
+SINGLE_EVAL_RETRY = {"attempts": 3, "base_s": 15.0}
+
+
 @router.post("/api/evaluations", status_code=201)
 async def create_evaluation(body: EvaluateRequest, request: Request, conn: sqlite3.Connection = Conn):
     evaluator = Evaluator(conn, request.app.state.provider_factory())
-    ev = await evaluator.evaluate(body.conversation_id, body.checklist_id, body.checklist_version)
+    ev = await retry_rate_limited(
+        lambda: evaluator.evaluate(body.conversation_id, body.checklist_id, body.checklist_version),
+        attempts=int(SINGLE_EVAL_RETRY["attempts"]), base_s=float(SINGLE_EVAL_RETRY["base_s"]))
     return _with_titles(conn, ev)[0]
 
 

@@ -212,3 +212,34 @@ def test_batch_waits_on_rate_limit(tmp_path, monkeypatch):
         assert len(prov.limited) == 2                                                    # по одному 429 на диалог
         calls = client.get("/api/llm-calls", params={"batch_id": b["batch_id"], "status": "provider_error"}).json()
         assert calls["total"] == 2 and calls["items"][0]["validation_errors"][0]["code"] == "rate_limit"
+
+
+def test_single_evaluation_waits_on_rate_limit(edge_records, tmp_path, monkeypatch):
+    """«Оценить» в карточке: при 429/503 провайдера эндпоинт ждёт и повторяет, а не отдаёт 502 сразу."""
+    from fastapi.testclient import TestClient
+
+    from backend import main as main_mod
+    from backend.main import create_app
+    from tests.test_evaluator import OK, ScriptedProvider, answer
+
+    class Flaky(ScriptedProvider):
+        def __init__(self):
+            super().__init__({cid: [answer(cid)] for cid in OK})
+            self.failures = 2
+
+        async def _call(self, *a, **k):
+            if self.failures:
+                self.failures -= 1
+                raise LLMError("HTTP 503: перегружена", code="rate_limit")
+            return await super()._call(*a, **k)
+
+    monkeypatch.setitem(main_mod.SINGLE_EVAL_RETRY, "base_s", 0.01)
+    prov = Flaky()
+    app = create_app(db_path=tmp_path / "s.db", data_dir=tmp_path, provider=prov)
+    with TestClient(app) as client:
+        client.post("/api/datasets/upload?group_id=EDGE", json=list(edge_records.values()))
+        r = client.post("/api/evaluations", json={"conversation_id": "edge-ru-001"})
+        assert r.status_code == 201 and r.json()["status"] == "completed" and prov.failures == 0
+        prov.failures = 10 ** 6                              # не снимается (каждый вызов по критерию) → 502 после попыток
+        r = client.post("/api/evaluations", json={"conversation_id": "edge-ru-002"})
+        assert r.status_code == 502 and r.json()["error"]["code"] == "llm_rate_limit"
