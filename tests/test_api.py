@@ -43,6 +43,7 @@ def _evaluate(client, conversation_id="edge-ru-001"):
 def test_health_meta_and_ui(client):
     assert client.get("/api/health").json() == {"status": "ok"}
     m = client.get("/api/meta").json()
+    assert m["eval_mode"] in ("per_criterion", "per_dialog") and m["prompt_version"] and "base_url" in m["llm"]
     assert m["languages"] == ["RU", "KZ", "EN"] and m["channels"] == ["agent chat", "voice call"] and "llm" in m
     assert m["prompt_version"].startswith("v1-") and m["prompt_version_normalized"].startswith(m["prompt_version"] + "+")
     assert m["checklists"] == [{"id": "chat-quality", "version": 1}] and isinstance(m["votes"], int)

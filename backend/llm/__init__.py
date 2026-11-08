@@ -14,7 +14,7 @@ from backend import config  # noqa: F401  (загружает .env)
 from backend.llm.base import PROVIDER_ERROR_CODES, LLMError, LLMProvider, Prices, Usage, retry_rate_limited
 
 __all__ = ["LLMError", "LLMProvider", "PROVIDER_ERROR_CODES", "PROFILES", "Prices", "Usage", "DEFAULT_MODELS",
-           "get_provider", "retry_rate_limited"]
+           "describe_config", "get_provider", "retry_rate_limited"]
 
 # key_env — переменные с ключом по порядку предпочтения; key — фиксированное значение (локальные серверы).
 PROFILES: dict[str, dict] = {
@@ -46,7 +46,9 @@ def _key(profile: dict) -> str | None:
     return next((v for n in profile.get("key_env", ()) if (v := _env(n))), None)
 
 
-def get_provider() -> LLMProvider:
+def describe_config() -> dict:
+    """Что получится из .env без создания провайдера: вид, модель, адрес. Используется в GET /api/meta,
+    чтобы сверка перед контрольным прогоном показывала ровно то, чем будет оцениваться."""
     kind = (_env("LLM_PROVIDER", "anthropic") or "").lower()
     profile = PROFILES.get(kind)
     if profile is None:
@@ -54,6 +56,14 @@ def get_provider() -> LLMProvider:
     # модель: <ВИД>_MODEL (GEMINI_MODEL, OLLAMA_MODEL, ANTHROPIC_MODEL …) → LLM_MODEL → модель профиля.
     # Так переключение LLM_PROVIDER одной строкой не тянет за собой чужую модель из общего LLM_MODEL.
     model = _env(f"{kind.upper()}_MODEL") or _env("LLM_MODEL", profile.get("model"))
+    return {"provider": kind, "model": model, "base_url": _env("LLM_BASE_URL", profile.get("base_url")),
+            "rate_limit_rpm": int(_env("RATE_LIMIT_RPM", str(profile.get("rpm", 0))))}
+
+
+def get_provider() -> LLMProvider:
+    cfg = describe_config()
+    kind, model = cfg["provider"], cfg["model"]
+    profile = PROFILES[kind]
     if not model:
         raise ValueError(f"LLM_MODEL не задан (для LLM_PROVIDER={kind} модели по умолчанию нет)")
     common = dict(timeout_s=float(_env("LLM_TIMEOUT_S", str(profile.get("timeout_s", 120)))),

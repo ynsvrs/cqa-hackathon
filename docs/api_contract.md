@@ -425,7 +425,7 @@ append-only. Исходная оценка не меняется; `final` пер
 ## 9. Служебное
 
 - `GET /api/health` → `{ "status": "ok" }`
-- `GET /api/meta` → `{ "llm": {"provider": "…", "model": "…"},
+- `GET /api/meta` → `{ "llm": {"provider": "…", "model": "…", "base_url": "…", "rate_limit_rpm": 5, "effort": …}, "eval_mode": "per_dialog",
   "data_api_configured": true, "languages": ["RU","KZ","EN"],
   "channels": ["agent chat","voice call"], "version": "0.1.0" }`
 

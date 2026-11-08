@@ -25,9 +25,9 @@ from backend import data_source, db
 from backend.appeals import apply_final_totals, final_result
 from backend.checklist import validate_checklist
 from backend.config import ROOT, get_settings
-from backend.evaluator import Evaluator, default_votes
+from backend.evaluator import Evaluator, default_mode, default_votes
 from backend.export_results import export_group
-from backend.llm import DEFAULT_MODELS, LLMError, get_provider
+from backend.llm import LLMError, describe_config, get_provider
 from backend.normalize import normalize_call, normalizer_version, text_hash
 from backend.preprocess import preprocess
 from backend.prompt import prompt_version
@@ -188,14 +188,20 @@ async def health():
 async def meta(conn: sqlite3.Connection = Conn):
     """Конфигурация, которую стоит сверить перед контрольным прогоном: модель, effort, голоса,
     нормализация звонков, версия промпта (хеш prompt.py + rules.md) и текущая версия чек-листа."""
-    kind = (os.getenv("LLM_PROVIDER") or "anthropic").lower()
+    try:
+        cfg = describe_config()
+    except ValueError as e:
+        raise ApiError(500, "llm_config", str(e))
+    kind = cfg["provider"]
+    mode = default_mode()
     checklists = [{"id": c["id"], "version": c["version"]} for c in db.list_checklists(conn)]
-    return {"llm": {"provider": kind, "model": os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(kind),
+    return {"llm": {"provider": kind, "model": cfg["model"], "base_url": cfg["base_url"],
+                    "rate_limit_rpm": cfg["rate_limit_rpm"],
                     "effort": os.getenv("LLM_EFFORT", "high") if kind == "anthropic" else None},
-            "votes": default_votes(),
+            "votes": default_votes(), "eval_mode": mode,
             "normalize_calls": os.getenv("NORMALIZE_CALLS", "0").lower() in ("1", "true", "yes"),
-            "prompt_version": prompt_version(),
-            "prompt_version_normalized": prompt_version(normalized=True),
+            "prompt_version": prompt_version(mode=mode),
+            "prompt_version_normalized": prompt_version(normalized=True, mode=mode),
             "checklists": checklists,
             "data_api_configured": bool(get_settings().data_api_url), "languages": LANGUAGES,
             "channels": CHANNELS, "version": VERSION}
