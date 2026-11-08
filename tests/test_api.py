@@ -355,3 +355,11 @@ def test_cors_from_env(tmp_path, monkeypatch):
         r = c.options("/api/evaluations", headers={"Origin": "http://localhost:5500", "Access-Control-Request-Method": "POST"})
         assert r.status_code == 200 and "POST" in r.headers.get("access-control-allow-methods", "")
         assert c.get("/api/health", headers={"Origin": "http://evil"}).headers.get("access-control-allow-origin") is None
+
+
+def test_static_is_served_without_heuristic_cache(client):
+    """Правки фронтенда видны без жёсткого сброса кэша: статика отдаётся с Cache-Control: no-cache, API — без него."""
+    r = client.get("/js/pages/dialogs.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache" and "uploadBtn" in r.text
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert "cache-control" not in client.get("/api/health").headers

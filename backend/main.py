@@ -161,6 +161,15 @@ def create_app(db_path: str | Path | None = None, data_dir: str | Path | None = 
     async def legacy_ui(rest: str = ""):
         return RedirectResponse("/" + rest, status_code=307)
 
+    @app.middleware("http")
+    async def _no_stale_static(request: Request, call_next):
+        """Статика фронтенда без кэша «по эвристике»: браузер каждый раз сверяет ETag, после правок js/css
+        не нужен жёсткий сброс кэша (важно на демо)."""
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
     # Фронтенд — статика на корне (после маршрутов /api/*): index.html, js/, css/; параметры — через URL
     FRONTEND_DIR.mkdir(exist_ok=True)
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
